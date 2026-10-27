@@ -1,130 +1,123 @@
-/**
- * @file    main.c
- * @brief   30021 standard project: hardware self-test and usage example.
- *          STM32 Nucleo-F302R8 with mbed application shield MBED-016.1.
- *
- * Replace this file with the assignment's own main.c. As it stands it
- * exercises every module in lib/, so flashing it is a quick check that the
- * board, the shield and the toolchain all work:
- *
- *   LCD      pot 1 and 2 (raw and mV), VDDA and the PWM duty, 10 Hz
- *   UART     the same once per second, 9600 8N1
- *   PA6      10 kHz PWM, 256 steps (assignment 3.1), start at 50 %
- *   joystick up/down +-16 steps, right/left +-1 step, centre back to 50 %
- *   LED      changes colour on every joystick press
- *
- * Only integer printf formats are used, so it does not depend on float
- * support in printf.
- */
 #include "stm32f30x_conf.h"
 #include "30010_io.h"
-#include "board.h"
-#include "delay.h"
-#include "tick.h"
-#include "joystick.h"
-#include "led.h"
-#include "adc.h"
-#include "pwm.h"
-#include "lcd.h"
-
-#include <stdint.h>
-#include <stdio.h>
-
-#define TICK_HZ         100u     /* 10 ms main loop tick                 */
-#define DISPLAY_TICKS   10u      /* LCD every 10 ticks = 100 ms          */
-#define PRINT_TICKS     100u     /* UART every 100 ticks = 1 s           */
-
-#define PWM_OUT         PWM_PA6_TIM16_CH1
-#define PWM_FREQ_HZ     10000u
-#define PWM_STEPS       256u
-#define STEP_COARSE     16u
-#define STEP_FINE       1u
-
-static uint32_t clampAdd(uint32_t v, int32_t d, uint32_t max);
+#include <string.h>
+#include "LSM9DS1.h"
 
 int main(void)
 {
-    uint32_t ticks = 0;
-    uint32_t pulse = PWM_STEPS / 2u;
-    uint8_t  colour = LED_RED;
-    uint8_t  pressed;
-    int      err;
 
+    uint8_t whoAmI; //Who am i Mag
+	int16_t gyroX;
+	int16_t gyroY;
+	int16_t gyroZ;
+    int16_t temperature;
+    int16_t magX;
+    int16_t magY;
+    int16_t magZ;
+	// uint8_t data = 0;
+    uint8_t output;//Who am i Gyro
+    uint8_t dummy = 0;
+	uint8_t data = READ | 0x0F;
+    uint8_t gyroadr = WRITE | 0x10; // CTRL_REG1_G  
+    uint8_t gyro_on = 0x20;
+    uint8_t magadr = WRITE | 0x20;
+    uint8_t mag_on = 0xF8;
+
+    // Initialize UART for printf()
     uart_init(9600);
-    delay_init();
-    led_init();
-    joystick_init();
-    adc_init();
-    lcd_init();
 
-    err = pwm_init(&PWM_OUT, PWM_FREQ_HZ, PWM_STEPS);
-    pwm_set(&PWM_OUT, pulse);
+	init_SPI3_9DOF();
+        GPIO_SetBits(GPIOD, GPIO_Pin_2); // Gyro/Acc/Temp OFF
+        GPIO_SetBits(GPIOC, GPIO_Pin_8); // Magnetometer OFF
 
-    tick_init(TICK_HZ);
+    // SPI Gyro Init:
 
-    printf("\n30021 standard project self-test\n");
-    printf("HCLK %lu Hz, TIM16 clock %lu Hz, PWM init %d, counter %lu Hz\n",
-           (unsigned long)board_hclk_hz(),
-           (unsigned long)board_timer_clock_hz(TIM16), err,
-           (unsigned long)pwm_counter_hz(&PWM_OUT));
-    led_set(colour);
+        GPIO_SetBits(GPIOC, GPIO_Pin_8);      // Make sure MAG is deselected
+        GPIO_ResetBits(GPIOD, GPIO_Pin_2);    // Select Gyro/Acc, CS = 0 - Start Transmission
+        
+            while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE) != SET) {}
+            SPI_SendData8(SPI3, gyroadr);    // CTRL_REG1_G   
 
-    while (1) {
-        if (tick_take() == 0u) {
-            continue;
+            while (SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_RXNE) == RESET){}
+            dummy = SPI_ReceiveData8(SPI3);
+
+			while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE) != SET) { }
+			SPI_SendData8(SPI3, gyro_on); //Dummy data to keep clock running for read action
+
+			while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_RXNE) == RESET) {}
+			output = SPI_ReceiveData8(SPI3);
+
+            while (SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE) == RESET){}
+			while (SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_BSY) == SET){}
+			GPIO_SetBits(GPIOD, GPIO_Pin_2); // CS = 1 - End Transmission
+
+    // SPI Mag Init:
+
+        GPIO_SetBits(GPIOD, GPIO_Pin_2);       // Make sure Gyro/Acc is deselected
+        GPIO_ResetBits(GPIOC, GPIO_Pin_8);     // Select Magnetometer // CS = 0 - Start Transmission
+
+			while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE) != SET) { }
+			SPI_SendData8(SPI3, magadr);
+
+            while (SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_RXNE) == RESET){}
+            dummy = SPI_ReceiveData8(SPI3);
+
+			while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE) != SET) { }
+			SPI_SendData8(SPI3, mag_on); //Dummy data to keep clock running for read action
+
+			while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_RXNE) == RESET) {}
+			whoAmI = SPI_ReceiveData8(SPI3);
+
+            while (SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE) == RESET){}
+			while (SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_BSY) == SET){}
+
+			GPIO_SetBits(GPIOC, GPIO_Pin_8); // CS = 1 - End Transmission
+
+        // ---------------- Magnetometer CTRL_REG3_M ----------------
+        // 0x80:
+        // I2C disabled
+        // SIM = 0 -> 4-wire SPI
+        // MD = 00 -> continuous conversion
+
+        GPIO_ResetBits(GPIOC, GPIO_Pin_8); // CS = 0 - Start Transmission
+            while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE) != SET) {}
+            SPI_SendData8(SPI3, WRITE | 0x22);
+            while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_RXNE) == RESET) {}
+            dummy = SPI_ReceiveData8(SPI3);
+
+            while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE) != SET) {}
+            SPI_SendData8(SPI3, 0x80);
+            while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_RXNE) == RESET) {}
+            dummy = SPI_ReceiveData8(SPI3);
+
+            while (SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE) == RESET){}
+            while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_BSY) == SET) {}
+
+            GPIO_SetBits(GPIOC, GPIO_Pin_8); // CS = 1 - End Transmission
+
+
+
+    whoAmI = SPI3_read_byte(data, Magnetometer_SEL); // Read WHO_AM_I from magnetometer
+    output = SPI3_read_byte(data, GyroAccTemp_SEL); // Read WHO_AM_I from gyro/accelerometer
+            printf("\nWHO_AM_I Gyro = 0x%02X\n\r", output);
+
+            printf("WHO_AM_I Mag = 0x%02X\n\r", whoAmI);
+
+	while (1)
+    {
+        readGyroData(&gyroX, &gyroY, &gyroZ);
+
+        readTempData(&temperature);
+
+        for(int i = 0 ; i < 1000000 ; i++){
         }
-        ticks++;
 
-        /* --- joystick, every tick (debounced by joystick_poll) --------- */
-        pressed = joystick_poll();
-        if (pressed) {
-            if (pressed & JOY_UP)     pulse = clampAdd(pulse,  STEP_COARSE, PWM_STEPS);
-            if (pressed & JOY_DOWN)   pulse = clampAdd(pulse, -(int32_t)STEP_COARSE, PWM_STEPS);
-            if (pressed & JOY_RIGHT)  pulse = clampAdd(pulse,  STEP_FINE, PWM_STEPS);
-            if (pressed & JOY_LEFT)   pulse = clampAdd(pulse, -(int32_t)STEP_FINE, PWM_STEPS);
-            if (pressed & JOY_CENTER) pulse = PWM_STEPS / 2u;
+        readMagData(&magX, &magY, &magZ);
 
-            pwm_set(&PWM_OUT, pulse);
+        printf("Gyro X: %6d | Y: %6d | Z: %6d | Temp: %6d | Mag X: %6d | Y: %6d | Z: %6d |\n\r",
+            gyroX, gyroY, gyroZ,
+            (int)temperature, magX, magY, magZ);
 
-            colour = (uint8_t)(colour % 7u + 1u);      /* 1..7, never off */
-            led_set(colour);
-        }
-
-        /* --- measurements, LCD at 10 Hz, UART at 1 Hz ------------------ */
-        if (ticks % DISPLAY_TICKS == 0u) {
-            uint32_t vdda  = adc_vdda_mv();
-            uint16_t raw1  = adc_read_avg(POT1_ADC_CHANNEL, 4);
-            uint16_t raw2  = adc_read_avg(POT2_ADC_CHANNEL, 4);
-            uint32_t mv1   = adc_to_mv(raw1, vdda);
-            uint32_t mv2   = adc_to_mv(raw2, vdda);
-            uint32_t dutyC = pulse * 1000u / PWM_STEPS;   /* 0.1 % units */
-
-            lcd_clear();
-            lcd_printf(0, 0, "POT1 %4u %4lumV", (unsigned)raw1, (unsigned long)mv1);
-            lcd_printf(0, 1, "POT2 %4u %4lumV", (unsigned)raw2, (unsigned long)mv2);
-            lcd_printf(0, 2, "VDDA %4lumV", (unsigned long)vdda);
-            lcd_printf(0, 3, "PA6 %3lu/%u %3lu.%lu%%",
-                       (unsigned long)pulse, PWM_STEPS,
-                       (unsigned long)(dutyC / 10u), (unsigned long)(dutyC % 10u));
-            lcd_update();
-
-            if (ticks % PRINT_TICKS == 0u) {
-                printf("t=%lus pot1=%u (%lu mV) pot2=%u (%lu mV) vdda=%lu mV duty=%lu.%lu%%\n",
-                       (unsigned long)(millis() / 1000u),
-                       (unsigned)raw1, (unsigned long)mv1, (unsigned)raw2, (unsigned long)mv2,
-                       (unsigned long)vdda,
-                       (unsigned long)(dutyC / 10u), (unsigned long)(dutyC % 10u));
-            }
-        }
     }
-}
+    }
 
-/* v + d, limited to 0..max. */
-static uint32_t clampAdd(uint32_t v, int32_t d, uint32_t max)
-{
-    int32_t r = (int32_t)v + d;
-
-    if (r < 0)            return 0u;
-    if ((uint32_t)r > max) return max;
-    return (uint32_t)r;
-}
