@@ -2,6 +2,17 @@
 #include "30010_io.h"
 #include <string.h>
 #include "LSM9DS1.h"
+#include <math.h>
+
+int16_t meanArray(int16_t arr[]){
+	int n = sizeof(arr) / sizeof(arr[0]);
+	int32_t sum = 0;
+	for (uint8_t i = 0 ; i < n ; i++){
+		sum += arr[i];
+	}
+	int32_t mean = sum / n;
+	return (int16_t)mean;
+}
 
 int main(void)
 {
@@ -106,22 +117,42 @@ int main(void)
             printf("\nWHO_AM_I Gyro = 0x%02X\n\r", output);
 
             printf("WHO_AM_I Mag = 0x%02X\n\r", whoAmI);
-    int16_t xAvg[]
+    int16_t xAvg[1000];
+    int16_t yAvg[1000];
+    int16_t zAvg[1000];
 	while (1)
     {
         readAccData(&accX, &accY, &accZ);
 
         //readTempData(&temperature);
 
-        for(int i = 0 ; i < 100 ; i++){
-
+        for(int i = 0 ; i < 1000 ; i++){
+            xAvg[i] = accX;
+            yAvg[i] = accY;
+            zAvg[i] = accZ;
+            if(i == 999){
+                // Calculate mean of the arrays
+                int16_t xMean = meanArray(xAvg);
+                int16_t yMean = meanArray(yAvg);
+                int16_t zMean = meanArray(zAvg);
+                //Convert to m/s^2 and print
+                float xMPS2 = (float)xMean * 0.061 / 1000 * 9.82;
+                float yMPS2 = (float)yMean * 0.061 / 1000 * 9.82;
+                float zMPS2 = (float)zMean * 0.061 / 1000 * 9.82;
+                printf("Acc X: %6.2f | Y: %6.2f | Z: %6.2f |\n\r",//| Temp: %6d | Mag X: %6d | Y: %6d | Z: %6d |\n\r",
+                xMPS2, yMPS2, zMPS2);
+                //Calculate roll and pitch from the accelerometer data and print
+                float roll = atan2(yMPS2, zMPS2) * 180 / M_PI;
+                float pitch = atan2(-xMPS2, sqrt(pow(yMPS2, 2) + pow(zMPS2, 2))) * 180 / M_PI;
+                printf("Roll: %6.2f | Pitch: %6.2f |\n\r", roll, pitch);
+                //(int)temperature, magX, magY, magZ);
+            }
         }
+        for(int i = 0 ; i < 10000000; i++){} // Delay
 
         //readMagData(&magX, &magY, &magZ);
 
-        printf("Acc X: %6d | Y: %6d | Z: %6d |\n\r",//| Temp: %6d | Mag X: %6d | Y: %6d | Z: %6d |\n\r",
-            accX, accY, accZ);
-            //(int)temperature, magX, magY, magZ);
+        
 
     }
     }
