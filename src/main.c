@@ -14,6 +14,10 @@ int main(void)
     int16_t magX;
     int16_t magY;
     int16_t magZ;
+    int16_t accX;
+    int16_t accY;
+    int16_t accZ;
+
 	// uint8_t data = 0;
     uint8_t output;//Who am i Gyro
     uint8_t dummy = 0;
@@ -102,21 +106,22 @@ int main(void)
             printf("\nWHO_AM_I Gyro = 0x%02X\n\r", output);
 
             printf("WHO_AM_I Mag = 0x%02X\n\r", whoAmI);
-
+    int16_t xAvg[]
 	while (1)
     {
-        readGyroData(&gyroX, &gyroY, &gyroZ);
+        readAccData(&accX, &accY, &accZ);
 
-        readTempData(&temperature);
+        //readTempData(&temperature);
 
-        for(int i = 0 ; i < 1000000 ; i++){
+        for(int i = 0 ; i < 100 ; i++){
+
         }
 
-        readMagData(&magX, &magY, &magZ);
+        //readMagData(&magX, &magY, &magZ);
 
-        printf("Gyro X: %6d | Y: %6d | Z: %6d | Temp: %6d | Mag X: %6d | Y: %6d | Z: %6d |\n\r",
-            gyroX, gyroY, gyroZ,
-            (int)temperature, magX, magY, magZ);
+        printf("Acc X: %6d | Y: %6d | Z: %6d |\n\r",//| Temp: %6d | Mag X: %6d | Y: %6d | Z: %6d |\n\r",
+            accX, accY, accZ);
+            //(int)temperature, magX, magY, magZ);
 
     }
     }
