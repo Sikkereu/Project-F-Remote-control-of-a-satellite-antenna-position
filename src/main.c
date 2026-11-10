@@ -1,5 +1,6 @@
 #include "stm32f30x_conf.h"
 #include "30010_io.h"
+#include "servo.c"
 #include <string.h>
 #include "LSM9DS1.h"
 #include <math.h>
@@ -152,6 +153,11 @@ int main(void)
 
         //readMagData(&magX, &magY, &magZ);
 
+        // Set servo functions - static. Needs logic to decide when to update degrees.
+        uint8_t deg1 = 0; // degree variables
+        uint8_t deg2 = 0;
+        servo_set_angle(SERVO_1, deg1);
+        servo_set_angle(SERVO_2, deg2);
         
 
     }
