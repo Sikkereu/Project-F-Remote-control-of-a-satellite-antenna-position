@@ -8,6 +8,8 @@
 
 void initUART1(uint32_t baudrate);
 void uart1SendFloat(float number);
+void uart1Send3Floats(float number1, float number2, float number3);
 void uart1ReceiveFloat(float *number);
+
 
 #endif /* UART1_H_ */

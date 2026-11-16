@@ -34,8 +34,18 @@ void initUART1(uint32_t baudrate){
 }
 
 void uart1SendFloat(float number){
-    char buffer[32];
+    char buffer[64];
     snprintf(buffer, sizeof(buffer), "%.2f", number);
+    for (int i = 0; i < strlen(buffer) ; i++) {
+        while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
+        USART_SendData(USART1, buffer[i]);
+    }
+    USART_SendData(USART1, '\n'); //Send newline character to indicate end of float
+}
+
+void uart1Send3Floats(float number1, float number2, float number3){
+    char buffer[64];
+    snprintf(buffer, sizeof(buffer), "%.2f, %.2f, %.2f", number1, number2, number3);
     for (int i = 0; i < strlen(buffer) ; i++) {
         while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
         USART_SendData(USART1, buffer[i]);
