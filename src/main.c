@@ -1,6 +1,6 @@
 #include "stm32f30x_conf.h"
 #include "30010_io.h"
-#include "servo.c"
+#include "servo.h"
 #include <string.h>
 #include "LSM9DS1.h"
 #include <math.h>
