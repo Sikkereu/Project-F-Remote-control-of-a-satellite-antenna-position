@@ -1,26 +1,11 @@
-#define RXD2 16
-#define TXD2 17
-#define baudrate 9600
+#define RXD2 8
+#define TXD2 9
+#define baudrate 115200
 
-void readFloat(){
-  String Data = Serial2.readStringUntil('\n');
-  return receivedData.toFloat();
-}
-
-void read3Floats(float *number1, float *number2, float *number3){
-  String receivedData = Serial2.readStringUntil('\n');
-  char buffer[64];
-  receivedData.toCharArray(buffer, sizeof(buffer));
-  // Separate values using commas
-  char *token = strtok(buffer, ",");
-
-  float number1 = atof(token);
-
-  token = strtok(NULL, ",");
-  float number2 = atof(token);
-
-  token = strtok(NULL, ",");
-  float number3 = atof(token);
+String readData(){
+  if (Serial2.available()){
+    return Serial2.readStringUntil('\n');
+  }
 }
 
 void setup() {
@@ -31,5 +16,5 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-
+  readData();
 }
