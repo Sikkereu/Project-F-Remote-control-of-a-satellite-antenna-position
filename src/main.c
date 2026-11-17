@@ -18,7 +18,7 @@ int16_t meanArray(int16_t arr[]){
 
 int main(void)
 {
-
+    /*
     uint8_t whoAmI; //Who am i Mag
 	int16_t gyroX;
 	int16_t gyroY;
@@ -122,8 +122,14 @@ int main(void)
     int16_t xAvg[1000];
     int16_t yAvg[1000];
     int16_t zAvg[1000];
+    */
+    uart_init(9600);
+    initUART1(115200);
+    uart1SendFloat(3.14);
 	while (1)
-    {
+    {  
+        uart1SendFloat(3.14); 
+        /*
         readAccData(&accX, &accY, &accZ);
 
         //readTempData(&temperature);
@@ -159,7 +165,7 @@ int main(void)
         uint8_t deg2 = 0;
         servo_set_angle(SERVO_1, deg1);
         servo_set_angle(SERVO_2, deg2);
-        
+        */
 
     }
     }
