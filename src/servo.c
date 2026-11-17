@@ -1,9 +1,9 @@
 #include "stm32f30x_conf.h"
 #include "servo.h"
 
-#define SERVO_MIN_US    500 // pulse at 0 deg - to be calibrated
-#define SERVO_MAX_US    2500 // pulse at 180 deg - to be calibrated
-#define SERVO_CENTER_US 1500 // pulse at 90 deg
+#define SERVO_MIN_US    0 // pulse at 0 deg - to be calibrated
+#define SERVO_MAX_US    1500 // pulse at 180 deg - to be calibrated
+#define SERVO_CENTER_US 750 // pulse at 90 deg
 #define SERVO_FRAME_US  20000 // 50 Hz frame
 
 // TIM16/TIM17 sit on APB2 = 64 MHz here; /64 gives 1 tick = 1 us - compare value = puls width in us

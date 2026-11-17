@@ -1,165 +1,110 @@
-#include "stm32f30x_conf.h"
-#include "30010_io.h"
-#include "servo.c"
-#include <string.h>
-#include "LSM9DS1.h"
 #include <math.h>
+#include <stdio.h>
+#include "30010_io.h"
+#include "delay.h"
+#include "LSM9DS1.h"
+#include "servo.h"
 
-int16_t meanArray(int16_t arr[]){
-	int n = sizeof(arr) / sizeof(arr[0]);
-	int32_t sum = 0;
-	for (uint8_t i = 0 ; i < n ; i++){
-		sum += arr[i];
-	}
-	int32_t mean = sum / n;
-	return (int16_t)mean;
+// Provisional calibration from the unloaded servo test.
+#define ARM_PULSE_0_US 600u
+#define ARM_PULSE_45_US 1000u
+#define ARM_PULSE_90_US 1500u
+#define ARM_NEUTRAL_DEG 90u
+#define SAMPLE_MS 25u
+#define NEUTRAL_SAMPLES 32u
+// Reverse this sign if the arm should move the other way.
+#define JOYSTICK_SIGN 1.0f
+
+static uint16_t arm_pulse_us(unsigned angle_deg)
+{
+    if (angle_deg <= 45u)
+    {
+        unsigned span = ARM_PULSE_45_US - ARM_PULSE_0_US;
+        return ARM_PULSE_0_US + (angle_deg * span + 22u) / 45u;
+    }
+
+    unsigned span = ARM_PULSE_90_US - ARM_PULSE_45_US;
+    return ARM_PULSE_45_US + ((angle_deg - 45u) * span + 22u) / 45u;
 }
 
 int main(void)
 {
-
-    uint8_t whoAmI; //Who am i Mag
-	int16_t gyroX;
-	int16_t gyroY;
-	int16_t gyroZ;
-    int16_t temperature;
-    int16_t magX;
-    int16_t magY;
-    int16_t magZ;
-    int16_t accX;
-    int16_t accY;
-    int16_t accZ;
-
-	// uint8_t data = 0;
-    uint8_t output;//Who am i Gyro
-    uint8_t dummy = 0;
-	uint8_t data = READ | 0x0F;
-    uint8_t gyroadr = WRITE | 0x10; // CTRL_REG1_G  
-    uint8_t gyro_on = 0x20;
-    uint8_t magadr = WRITE | 0x20;
-    uint8_t mag_on = 0xF8;
-
-    // Initialize UART for printf()
     uart_init(9600);
+    delay_init();
+    init_SPI3_9DOF();
+    delay_ms(50);
 
-	init_SPI3_9DOF();
-        GPIO_SetBits(GPIOD, GPIO_Pin_2); // Gyro/Acc/Temp OFF
-        GPIO_SetBits(GPIOC, GPIO_Pin_8); // Magnetometer OFF
-
-    // SPI Gyro Init:
-
-        GPIO_SetBits(GPIOC, GPIO_Pin_8);      // Make sure MAG is deselected
-        GPIO_ResetBits(GPIOD, GPIO_Pin_2);    // Select Gyro/Acc, CS = 0 - Start Transmission
-        
-            while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE) != SET) {}
-            SPI_SendData8(SPI3, gyroadr);    // CTRL_REG1_G   
-
-            while (SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_RXNE) == RESET){}
-            dummy = SPI_ReceiveData8(SPI3);
-
-			while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE) != SET) { }
-			SPI_SendData8(SPI3, gyro_on); //Dummy data to keep clock running for read action
-
-			while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_RXNE) == RESET) {}
-			output = SPI_ReceiveData8(SPI3);
-
-            while (SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE) == RESET){}
-			while (SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_BSY) == SET){}
-			GPIO_SetBits(GPIOD, GPIO_Pin_2); // CS = 1 - End Transmission
-
-    // SPI Mag Init:
-
-        GPIO_SetBits(GPIOD, GPIO_Pin_2);       // Make sure Gyro/Acc is deselected
-        GPIO_ResetBits(GPIOC, GPIO_Pin_8);     // Select Magnetometer // CS = 0 - Start Transmission
-
-			while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE) != SET) { }
-			SPI_SendData8(SPI3, magadr);
-
-            while (SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_RXNE) == RESET){}
-            dummy = SPI_ReceiveData8(SPI3);
-
-			while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE) != SET) { }
-			SPI_SendData8(SPI3, mag_on); //Dummy data to keep clock running for read action
-
-			while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_RXNE) == RESET) {}
-			whoAmI = SPI_ReceiveData8(SPI3);
-
-            while (SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE) == RESET){}
-			while (SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_BSY) == SET){}
-
-			GPIO_SetBits(GPIOC, GPIO_Pin_8); // CS = 1 - End Transmission
-
-        // ---------------- Magnetometer CTRL_REG3_M ----------------
-        // 0x80:
-        // I2C disabled
-        // SIM = 0 -> 4-wire SPI
-        // MD = 00 -> continuous conversion
-
-        GPIO_ResetBits(GPIOC, GPIO_Pin_8); // CS = 0 - Start Transmission
-            while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE) != SET) {}
-            SPI_SendData8(SPI3, WRITE | 0x22);
-            while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_RXNE) == RESET) {}
-            dummy = SPI_ReceiveData8(SPI3);
-
-            while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE) != SET) {}
-            SPI_SendData8(SPI3, 0x80);
-            while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_RXNE) == RESET) {}
-            dummy = SPI_ReceiveData8(SPI3);
-
-            while (SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_TXE) == RESET){}
-            while(SPI_I2S_GetFlagStatus(SPI3, SPI_I2S_FLAG_BSY) == SET) {}
-
-            GPIO_SetBits(GPIOC, GPIO_Pin_8); // CS = 1 - End Transmission
-
-
-
-    whoAmI = SPI3_read_byte(data, Magnetometer_SEL); // Read WHO_AM_I from magnetometer
-    output = SPI3_read_byte(data, GyroAccTemp_SEL); // Read WHO_AM_I from gyro/accelerometer
-            printf("\nWHO_AM_I Gyro = 0x%02X\n\r", output);
-
-            printf("WHO_AM_I Mag = 0x%02X\n\r", whoAmI);
-    int16_t xAvg[1000];
-    int16_t yAvg[1000];
-    int16_t zAvg[1000];
-	while (1)
+    uint8_t id = SPI3_read_byte(READ | 0x0F, GyroAccTemp_SEL);
+    if (id != WHO_AM_I_AG_VALUE)
     {
-        readAccData(&accX, &accY, &accZ);
+        printf("LSM9DS1 sensor-ID 0x%02X, forventet 0x%02X.\n",
+               (unsigned)id, (unsigned)WHO_AM_I_AG_VALUE);
+        for (;;) { }
+    }
 
-        //readTempData(&temperature);
+    // Accelerometer only, +/-2 g at 50 Hz. BDU keeps each sample's bytes together.
+    SPI3_write_reg(CTRL_REG1_G, 0x00, GyroAccTemp_SEL);
+    SPI3_write_reg(CTRL_REG8, 0x44, GyroAccTemp_SEL);
+    SPI3_write_reg(CTRL_REG6_XL, 0x40, GyroAccTemp_SEL);
+    printf("Hold det hjemmelavede joystick stille i neutral.\n");
+    delay_ms(1000);
 
-        for(int i = 0 ; i < 1000 ; i++){
-            xAvg[i] = accX;
-            yAvg[i] = accY;
-            zAvg[i] = accZ;
-            if(i == 999){
-                // Calculate mean of the arrays
-                int16_t xMean = meanArray(xAvg);
-                int16_t yMean = meanArray(yAvg);
-                int16_t zMean = meanArray(zAvg);
-                //Convert to m/s^2 and print
-                float xMPS2 = (float)xMean * 0.061 / 1000 * 9.82;
-                float yMPS2 = (float)yMean * 0.061 / 1000 * 9.82;
-                float zMPS2 = (float)zMean * 0.061 / 1000 * 9.82;
-                printf("Acc X: %6.2f | Y: %6.2f | Z: %6.2f |\n\r",//| Temp: %6d | Mag X: %6d | Y: %6d | Z: %6d |\n\r",
-                xMPS2, yMPS2, zMPS2);
-                //Calculate roll and pitch from the accelerometer data and print
-                float roll = atan2(yMPS2, zMPS2) * 180 / M_PI;
-                float pitch = atan2(-xMPS2, sqrt(pow(yMPS2, 2) + pow(zMPS2, 2))) * 180 / M_PI;
-                printf("Roll: %6.2f | Pitch: %6.2f |\n\r", roll, pitch);
-                //(int)temperature, magX, magY, magZ);
-            }
+    int32_t neutral_x = 0;
+    int32_t neutral_z = 0;
+    for (unsigned i = 0; i < NEUTRAL_SAMPLES; ++i)
+    {
+        int16_t ax, ay, az;
+        readAccData(&ax, &ay, &az);
+        neutral_x += ax;
+        neutral_z += az;
+        delay_ms(SAMPLE_MS);
+    }
+
+    float ref_x = (float)neutral_x / NEUTRAL_SAMPLES;
+    float ref_z = (float)neutral_z / NEUTRAL_SAMPLES;
+    if (ref_x * ref_x + ref_z * ref_z < 8000.0f * 8000.0f)
+    {
+        printf("Neutral maaling ugyldig. Hold joysticket lodret og tryk Reset.\n");
+        for (;;) { }
+    }
+
+    servo_init();
+    uint16_t pulse_us = arm_pulse_us(ARM_NEUTRAL_DEG);
+    servo_set_pulse_us(SERVO_1, pulse_us);  // PA6 / D12
+    float filtered_target = (float)ARM_NEUTRAL_DEG;
+    uint32_t last_report = millis();
+
+    for (;;)
+    {
+        int16_t ax, ay, az;
+        readAccData(&ax, &ay, &az);
+
+        // Signed tilt from neutral in the X/Z plane (rotation about sensor Y).
+        float cross = ref_x * az - ref_z * ax;
+        float dot = ref_x * ax + ref_z * az;
+        float tilt = JOYSTICK_SIGN * atan2f(cross, dot) * 57.2957795f;
+        if (fabsf(tilt) < 2.0f)
+        {
+            tilt = 0.0f;
         }
-        for(int i = 0 ; i < 10000000; i++){} // Delay
 
-        //readMagData(&magX, &magY, &magZ);
+        float target = fminf(90.0f, fmaxf(0.0f, (float)ARM_NEUTRAL_DEG - tilt));
+        filtered_target += 0.25f * (target - filtered_target);
+        unsigned target_deg = (unsigned)(filtered_target + 0.5f);
+        uint16_t next_pulse = arm_pulse_us(target_deg);
+        if (next_pulse != pulse_us)
+        {
+            pulse_us = next_pulse;
+            servo_set_pulse_us(SERVO_1, pulse_us);
+        }
 
-        // Set servo functions - static. Needs logic to decide when to update degrees.
-        uint8_t deg1 = 0; // degree variables
-        uint8_t deg2 = 0;
-        servo_set_angle(SERVO_1, deg1);
-        servo_set_angle(SERVO_2, deg2);
-        
-
+        uint32_t now = millis();
+        if (now - last_report >= 200u)
+        {
+            printf("Joystickvip %+d grader | Armmaal %u grader | PWM %u us\n",
+                   (int)lroundf(tilt), target_deg, (unsigned)pulse_us);
+            last_report = now;
+        }
+        delay_ms(SAMPLE_MS);
     }
-    }
-
+}
