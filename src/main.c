@@ -4,6 +4,7 @@
 #include <string.h>
 #include "LSM9DS1.h"
 #include <math.h>
+#include <uart1.h>
 
 int16_t meanArray(int16_t arr[]){
 	int n = sizeof(arr) / sizeof(arr[0]);
