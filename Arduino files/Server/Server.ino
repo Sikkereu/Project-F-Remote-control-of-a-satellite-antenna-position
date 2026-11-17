@@ -1,26 +1,30 @@
-/*
-    Based on Neil Kolban example for IDF: https://github.com/nkolban/esp32-snippets/blob/master/cpp_utils/tests/BLE%20Tests/SampleServer.cpp
-    Ported to Arduino ESP32 by Evandro Copercini
-    updates by chegewara
-*/
-
 #include <Arduino.h>
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEServer.h>
 
-// See the following for generating UUIDs:
-// https://www.uuidgenerator.net/
-
-#define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+#define SERVICE_UUID "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define SERVO_UUID "ab9b739b-aa65-4bc9-b18f-c7813805e78a"
 #define ACCEL_UUID "af62835c-2061-4920-9920-2028d50b94c3"
 #define GYRO_UUID "9ea241b0-7f32-4433-ab54-70682ab76806"
 #define MAGNETOMETER_UUID "739281b2-6335-4253-ae75-834f4a45223f"
+
 BLECharacteristic *servoCharacteristic = nullptr;
 BLECharacteristic *accelCharacteristic = nullptr;
 BLECharacteristic *gyroCharacteristic = nullptr;
 BLECharacteristic *magnetometerCharacteristic = nullptr;
+
+String servoData;
+bool newData = 0;
+
+//Callback that occurs when the server is written to
+class CharacteristicCallbacks : public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic *pCharacteristic) {
+    servoData = pCharacteristic->getValue();
+    newData = 1;
+  }
+};
+
 
 void setup() {
   Serial.begin(115200);
@@ -46,6 +50,7 @@ void setup() {
   accelCharacteristic->setValue("");
   gyroCharacteristic->setValue("");
   magnetometerCharacteristic->setValue("");
+  servoCharacteristic->setCallbacks(new CharacteristicCallbacks());
   pService->start();
   // BLEAdvertising *pAdvertising = pServer->getAdvertising();  // this still is working for backward compatibility
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
@@ -57,12 +62,16 @@ void setup() {
   Serial.println("Characteristic defined! Now you can read it in your phone!");
 }
 float i = 0;
+
 void loop() {
 
   // FIX recieve cycle
-  String value = servoCharacteristic->getValue();
-  Serial.println(value);
-
+  //String value = servoCharacteristic->getValue();
+  if(newData == 1){
+    Serial.println(servoData);
+    newData == 0;
+  }
+  
   char send[30];
   sprintf(send, "%.2f,%.2f,%.2f", i,i,i);  
   accelCharacteristic->setValue(send);
