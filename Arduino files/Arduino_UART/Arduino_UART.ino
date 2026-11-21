@@ -1,6 +1,6 @@
 #define RXD2 6
 #define TXD2 7
-#define baudrate 115200
+#define baudrate 9600
 
 String readData(){
   String received;
@@ -40,5 +40,8 @@ String ID;
 char payload[128];
 void loop() {
   // put your main code here, to run repeatedly:
-  getIDPayload(ID, payload, sizeof(payload));
+  //getIDPayload(ID, payload, sizeof(payload));
+  //readData();
+  Serial1.println("3.14");
+  delay(3000);
 }
