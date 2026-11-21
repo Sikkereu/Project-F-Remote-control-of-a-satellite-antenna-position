@@ -124,7 +124,7 @@ int main(void)
     int16_t zAvg[1000];
     */
     uart_init(9600);
-    initUART1(19200);
+    initUART1(230400);
     char payload[64];
     strcpy(payload, "accel,3.14,2.71,1.62,3.14,2.71,1.62\n");
     uart1SendData(payload, strlen(payload));
