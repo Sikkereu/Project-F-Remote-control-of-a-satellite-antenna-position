@@ -12,7 +12,7 @@ void initUART1(uint32_t baudrate){
     GPIO_InitStructAll.GPIO_Mode = GPIO_Mode_AF;
     GPIO_InitStructAll.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_InitStructAll.GPIO_OType = GPIO_OType_PP;
-    GPIO_InitStructAll.GPIO_PuPd = GPIO_PuPd_UP;
+    GPIO_InitStructAll.GPIO_PuPd = GPIO_PuPd_DOWN;
 
     GPIO_Init(GPIOA, &GPIO_InitStructAll);
 
@@ -57,6 +57,18 @@ void uart1Send3Floats(float number1, float number2, float number3){
         USART_SendData(USART1, buffer[i]);
     }
     USART_SendData(USART1, '\n'); //Send newline character to indicate end of float
+}
+
+void uart1SendData(char *data, uint16_t length){
+    for (uint16_t i = 0; i < length; i++) {
+        while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
+        USART_SendData(USART1, data[i]);
+    }
+    // Send newline
+    while (USART_GetFlagStatus(USART1, USART_FLAG_TXE) == RESET);
+    USART_SendData(USART1, '\n');
+    // Wait until transmission is completely finished
+    while (USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET);
 }
 
 void uart1ReceiveFloat(float *number){

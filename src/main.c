@@ -124,11 +124,17 @@ int main(void)
     int16_t zAvg[1000];
     */
     uart_init(9600);
-    initUART1(115200);
-    uart1SendFloat(3.14);
+    initUART1(19200);
+    char payload[64];
+    strcpy(payload, "accel,3.14,2.71,1.62,3.14,2.71,1.62\n");
+    uart1SendData(payload, strlen(payload));
+    float number = 0.0f;
 	while (1)
     {  
-        uart1SendFloat(3.14); 
+        uart1ReceiveFloat(&number);
+        printf("Received float: %.2f\n", number); // Debug print to console
+        for(int i = 0; i < 10000000; i++){} // Delay
+        //uart1SendFloat(3.14); 
         /*
         readAccData(&accX, &accY, &accZ);
 
