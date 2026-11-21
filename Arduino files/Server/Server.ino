@@ -8,6 +8,9 @@
 #define ACCEL_UUID "af62835c-2061-4920-9920-2028d50b94c3"
 #define GYRO_UUID "9ea241b0-7f32-4433-ab54-70682ab76806"
 #define MAGNETOMETER_UUID "739281b2-6335-4253-ae75-834f4a45223f"
+#define RXD2 6
+#define TXD2 7
+#define baudrate 115200
 
 BLECharacteristic *servoCharacteristic = nullptr;
 BLECharacteristic *accelCharacteristic = nullptr;
@@ -24,7 +27,35 @@ class CharacteristicCallbacks : public BLECharacteristicCallbacks {
     newData = 1;
   }
 };
+/*
 
+REMOVE DEBUG STAMENTS BEFORE HANDIN
+
+
+*/
+String readData(){
+  String received;
+  if (Serial1.available() > 0){
+    Serial.println("entered function");
+    received = Serial1.readStringUntil('\n');
+    Serial.println(received);
+  }
+  return received;
+}
+
+void getIDPayload(String &ID, char *payload, int payloadSize){
+  String data = readData();
+  int seperator = data.indexOf(',');
+  if(seperator != -1){
+    ID = data.substring(0,seperator);
+    data = data.substring(seperator + 1);
+    data.toCharArray(payload,payloadSize);
+    Serial.println(ID);
+    Serial.println(payload);
+    data = "";
+    seperator = -1;
+  }
+}
 
 void setup() {
   Serial.begin(115200);
@@ -61,27 +92,32 @@ void setup() {
   BLEDevice::startAdvertising();
   Serial.println("Characteristic defined! Now you can read it in your phone!");
 }
-float i = 0;
-
+char payload[64];
+String ID;
 void loop() {
-
-  // FIX recieve cycle
-  //String value = servoCharacteristic->getValue();
+  //Check for new data from other bluetooth device
   if(newData == 1){
-    Serial.println(servoData);
+    Serial1.println(servoData);
     newData == 0;
   }
-  
-  char send[30];
-  sprintf(send, "%.2f,%.2f,%.2f", i,i,i);  
-  accelCharacteristic->setValue(send);
-  accelCharacteristic->notify();
 
-  gyroCharacteristic->setValue(send);
-  gyroCharacteristic->notify();
+  //Check for UART data and if new data is available read the ID and create payload
+  getIDPayload(ID, payload, sizeof(payload));  
 
-  magnetometerCharacteristic->setValue(send);
-  magnetometerCharacteristic->notify();
-  i++;
-  delay(2000);
+  //Send data based on ID
+  if(ID == "accel"){
+    accelCharacteristic->setValue(payload);
+    accelCharacteristic->notify();
+    ID = "";
+  }
+  else if(ID == "gyro"){
+    gyroCharacteristic->setValue(payload);
+    gyroCharacteristic->notify();
+    ID = "";
+  }
+  else if(ID == "magnetometer"){
+    magnetometerCharacteristic->setValue(payload);
+    magnetometerCharacteristic->notify();
+    ID = "";
+  }
 }
