@@ -1,6 +1,6 @@
 #define RXD2 6
 #define TXD2 7
-#define baudrate 9600
+#define baudrate 115200
 
 String readData(){
   String received;

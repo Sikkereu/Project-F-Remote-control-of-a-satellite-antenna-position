@@ -38,7 +38,6 @@ String readData(){
   if (Serial1.available() > 0){
     Serial.println("entered function");
     received = Serial1.readStringUntil('\n');
-    Serial.println(received);
   }
   return received;
 }
@@ -60,7 +59,7 @@ void getIDPayload(String &ID, char *payload, int payloadSize){
 void setup() {
   Serial.begin(115200);
   Serial.println("Starting BLE work!");
-
+  Serial1.begin(baudrate, SERIAL_8N1, RXD2, TXD2);
   if (!BLEDevice::init("BLE Server Example")) {
     Serial.println("BLE initialization failed!");
     return;
@@ -97,8 +96,9 @@ String ID;
 void loop() {
   //Check for new data from other bluetooth device
   if(newData == 1){
-    Serial1.println(servoData);
-    newData == 0;
+    Serial1.println(String(servoData));
+    Serial.println(servoData);
+    newData = 0;
   }
 
   //Check for UART data and if new data is available read the ID and create payload
