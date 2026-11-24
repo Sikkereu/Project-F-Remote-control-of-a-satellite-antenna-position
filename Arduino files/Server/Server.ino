@@ -93,10 +93,13 @@ void setup() {
 }
 char payload[64];
 String ID;
+char send[64];
 void loop() {
   //Check for new data from other bluetooth device
   if(newData == 1){
-    Serial1.println(String(servoData));
+    String servoAngle = String(servoData) + "\n";
+    servoAngle.toCharArray(send, sizeof(send));
+    Serial1.write(send);
     Serial.println(servoData);
     newData = 0;
   }
